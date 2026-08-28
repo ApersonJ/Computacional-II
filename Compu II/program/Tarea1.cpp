@@ -16,6 +16,8 @@ double Funcion(double r[], double z[], double R, double phi, int k);
 
 double Simpson(double r[], double z[], double R, int n, int k);
 
+double Trapecio(double r[], double z[], double R, int n, int k);
+
 void Comprobar(double R, int n);
 
 void generarArchivoSalida(const string &archivoSalida,
@@ -34,12 +36,14 @@ int main(){
 	GenerarMalla(r, z, rMin, rMax, zMin, zMax, N);
 	
 	double Resultados[N*N];
+	double ResultadosTrapecio[N*N]
 	for (int k=0; k<=N*N-1; k++){
     if (fabs(r[k] - R) < tol && fabs(z[k]) < tol){
       Resultados[k] = 20;
     }
     else {
 		  Resultados[k]=Simpson(r, z, R, n, k);
+		  ResultadosTrapecio[k] = Trapecio()
     }
 	}
 	
@@ -137,6 +141,21 @@ double Simpson(double r[], double z[], double R, int n, int k){
 
     return (dphi / 3.0) * suma;
 }
+
+double Trapecio(double r[], double z[], double R, int n, int k)
+{
+    double dphi = (b - a) / n;
+    double suma = 0.0;
+
+    suma += Funcion(r, z, R, a, k) + Funcion(r, z, R, b, k);
+
+    for (int i = 1; i <= n - 1; i++)
+    {
+        double phi_i = a + i * dphi;
+        suma += 2.0 * Funcion(r, z, R, phi_i, k);
+    }
+
+    return (dtheta / 2.0) * suma;
 
 
 void generarArchivoSalida(const string &archivoSalida,
