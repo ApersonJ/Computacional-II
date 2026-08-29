@@ -20,11 +20,17 @@ double Trapecio(double r[], double z[], double R, int n, int k);
 
 void Comprobar(double R, int n);
 
+void Convergencia(double R, double zval, int nMax);
+
+void graficarConvergencia(const string &archivoConv);
+
 void generarArchivoSalida(const string &archivoSalida,
                           int n, double R, double N,
                           double r[], double z[], double Resultados[]);
                           
-void graficarDatos(const string &archivoSalida);
+void graficarDatos(const string &archivoSalida, const string &archivoPNG, const string &titulo);
+
+
 
 int main(){
 	
@@ -36,22 +42,29 @@ int main(){
 	GenerarMalla(r, z, rMin, rMax, zMin, zMax, N);
 	
 	double Resultados[N*N];
-	double ResultadosTrapecio[N*N]
+	double ResultadosTrapecio[N*N];
 	for (int k=0; k<=N*N-1; k++){
     if (fabs(r[k] - R) < tol && fabs(z[k]) < tol){
       Resultados[k] = 20;
+      ResultadosTrapecio [k] = 20;
     }
     else {
 		  Resultados[k]=Simpson(r, z, R, n, k);
-		  ResultadosTrapecio[k] = Trapecio()
+		  ResultadosTrapecio[k] = Trapecio(r, z, R, n, k);
     }
 	}
 	
 	string archivoSalida = "../resultados/resultados_integracion.dat";
+    string archivoTrapecio = "../resultados/resultados_trapecio.dat";
 	
 	generarArchivoSalida(archivoSalida, n, R, N, r, z, Resultados);
-	graficarDatos(archivoSalida);
+    generarArchivoSalida(archivoTrapecio, n, R, N, r, z, ResultadosTrapecio );
+	graficarDatos(archivoSalida,  "../grafica/potencial_simpson.png",  "Potencial electrico - Simpson");
+    graficarDatos(archivoTrapecio, "../grafica/potencial_trapecio.png", "Potencial electrico - Trapecio");
     Comprobar(R, n);
+
+    Convergencia(R, R, 200);
+    graficarConvergencia("../resultados/convergencia.dat");
 	
 return 0;
 }
@@ -155,7 +168,9 @@ double Trapecio(double r[], double z[], double R, int n, int k)
         suma += 2.0 * Funcion(r, z, R, phi_i, k);
     }
 
-    return (dtheta / 2.0) * suma;
+    return (dphi / 2.0) * suma;
+
+}
 
 
 void generarArchivoSalida(const string &archivoSalida,
@@ -184,16 +199,15 @@ void generarArchivoSalida(const string &archivoSalida,
     cout << "Archivo generado: " << archivoSalida << endl;
 }
 
-void graficarDatos(const string &archivoSalida)
+void graficarDatos(const string &archivoSalida, const string &archivoPNG, const string &titulo)
 {
-    // Para obtener una vista 3D de la superficie
     string script =
         "set terminal pngcairo size 800,600\n"
-        "set output '../grafica/potencial_grafica.png'\n"
+        "set output '" + archivoPNG + "'\n"
         "set xlabel 'r'\n"
         "set ylabel 'z'\n"
         "set zlabel 'V(r,z)'\n"
-        "set title 'Potencial electrico'\n"
+        "set title '" + titulo + "'\n"
         "set dgrid3d 50,50\n"
         "set pm3d\n"
         "set hidden3d\n"
@@ -209,7 +223,7 @@ void graficarDatos(const string &archivoSalida)
 
         system("gnuplot ../scripts/potencial_grafica.gnuplot");
 
-        cout << "Grafico generado: potencial_grafica.png" << endl;
+        cout << "Grafico generado: " << archivoPNG << endl;
     }
     else
     {
@@ -222,9 +236,11 @@ void Comprobar(double R, int n){
     cout << fixed << setprecision(8);
     cout << "\n Validacion de Simpson\n";
     cout << setw(12) << "z"
-         << setw(16) << "Numerico"
+         << setw(16) << "Simpson"
+         << setw(16) << "Trapecio"
          << setw(16) << "Analitico"
-         << setw(16) << "ErrorRel" << endl;
+         << setw(16) << "ErrorRel Simp" 
+         << setw(16) << "ErrorRel Tra" << endl;
 
     double reje[1]={0.0};
     double zeje[]= {0.0, 0.5*R, R, 2*R, 5*R, 10*R, 100*R };
@@ -234,12 +250,83 @@ void Comprobar(double R, int n){
         
         double z[1] = {zval};
         double Vnum = Simpson(reje, z, R, n, 0);
+        double Vnum2 = Trapecio(reje, z, R, n, 0);
         double Vana = b*R / sqrt(R*R + zval*zval);
         double errorRel = fabs(Vnum - Vana) / fabs(Vana);
+        double errorRel2 = fabs(Vnum2 - Vana) / fabs(Vana);
 
         cout << setw(12) << zval
              << setw(16) << Vnum
+             << setw(16) << Vnum2
              << setw(16) << Vana
-             << setw(16) << errorRel << fixed << endl;
+             << setw(16) << errorRel 
+             << setw(16) << errorRel2 << fixed << endl;
         }
+}
+
+void Convergencia(double R, double zval, int nMax)
+{
+    double reje[1] = {0.5 * R};
+    double z[1] = {zval};
+
+    double Vref = Simpson(reje, z, R, 20000, 0);
+
+    string archivoConv = "../resultados/convergencia.dat";
+    ofstream archivo(archivoConv);
+    archivo << scientific << setprecision(10); // Notacion cientifica debido a errores en escala logaritmica
+
+    archivo << setw(8)  << "#n"
+            << setw(18) << "Simpson"
+            << setw(18) << "Trapecio"
+            << setw(18) << "ErrorSimpson"
+            << setw(18) << "ErrorTrapecio" << endl;
+
+    for (int n = 2; n <= nMax; n += 2)
+    {
+        double VnumSimp = Simpson(reje, z, R, n, 0);
+        double VnumTrap = Trapecio(reje, z, R, n, 0);
+
+        double errSimp = fabs(VnumSimp - Vref);
+        double errTrap = fabs(VnumTrap - Vref);
+
+        archivo << setw(8)  << n
+                << setw(18) << VnumSimp
+                << setw(18) << VnumTrap
+                << setw(18) << errSimp
+                << setw(18) << errTrap << endl;
+    }
+
+    archivo.close();
+}
+
+void graficarConvergencia(const string &archivoConv)
+{
+    string script =
+        "set terminal pngcairo size 800,600\n"
+        "set output '../grafica/convergencia.png'\n"
+        "set xlabel 'n (numero de intervalos)'\n"
+        "set ylabel 'Error absoluto |Vnum - Vana|'\n"
+        "set title 'Convergencia de Simpson vs Trapecio'\n"
+        "set logscale x\n"
+        "set logscale y\n"
+        "set grid\n"
+        "set key top right\n"
+        "plot '" + archivoConv + "' using 1:4 with lines title 'Simpson', "
+        "'" + archivoConv + "' using 1:5 with lines title 'Trapecio'\n";
+
+    ofstream scriptFile("../scripts/convergencia_grafica.gnuplot");
+
+    if (scriptFile.is_open())
+    {
+        scriptFile << script;
+        scriptFile.close();
+
+        system("gnuplot ../scripts/convergencia_grafica.gnuplot");
+
+        cout << "Grafico de convergencia generado: convergencia.png" << endl;
+    }
+    else
+    {
+        cerr << "Error: No se pudo crear el archivo de script gnuplot" << endl;
+    }
 }
